@@ -8,6 +8,10 @@ ImageWidget imageWidget;
 RPoint[][] points;
 boolean ignoringStyles = false;
 byte[] bytes;
+boolean fileLoaded;
+boolean selecting;
+boolean writing;
+boolean stop;
 
 PFont primalFont;
 color bgColor;
@@ -15,11 +19,12 @@ float barHeight;
 
 Button loadFileButton;
 Button writeButton;
+Button stopButton;
 
 
 void setup()  {
   println("Инициализация...");
-  size(500, 500);
+  size(500, 600);
   primalFont = createFont("Segoe UI",16,true);
   barHeight = 60;
   bgColor = 255;
@@ -28,6 +33,11 @@ void setup()  {
   textFont(primalFont,12);
   loadFileButton = new Button(10, 10, 100, 40, "file select");
   writeButton = new Button(120, 10, 100, 40, "write data");
+  stopButton = new Button(230, 10, 100, 40, "pause");
+  fileLoaded = false;
+  selecting = false;
+  writing = false;
+  stop = false;
   
   RG.init(this);
   RG.ignoreStyles(ignoringStyles);
@@ -45,26 +55,54 @@ void draw()  {
   clc();
   loadFileButton.bDraw();
   writeButton.bDraw();
-  if (imageWidget != null)
+  stopButton.bDraw();
+  
+  if (imageWidget != null && fileLoaded)
     imageWidget.drawWidget();
   fill(0);
   line(0,barHeight,width,barHeight);
-  if (loadFileButton.isPressed())
-    openFile("D:\\docs\\programms\\Future Gadgets LAb\\Christine\\Christine-FutureGadget\\test.svg");
+  fill(255);
+  if (loadFileButton.isPressed() && !selecting)  {
+    selecting = true;
+    mousePressed = false;
+    selectInput("select svg file", "openFile");
+  }
+  if (writeButton.isPressed() && fileLoaded && !writing)  {
+    writing = true;
+    println("Начинаем запись в порт...");
+    thread("comThread");
+  }
+  if (stopButton.isPressed() && writing)  {
+    if (stop)  {
+      println("продолжаем...");  
+    }  else  {
+      println("приостановка записи");
+    }
+  }
 }
 
-void openFile(String fileName)  {
-   println("Открытие файла " + fileName);
-   image = RG.loadShape(fileName);
-   points = image.getPointsInPaths();
-   imageWidget = new ImageWidget(image);
-   imageWidget.drawWidget();
+void openFile(File selection)  {
+   println("Выбор файла...");
+   if (selection != null)  {
+     println("Открытие файла " + selection.getName());
+     image = null;
+     image = RG.loadShape(selection.getAbsolutePath());
+     points = image.getPointsInPaths();
+     imageWidget = new ImageWidget(image);
+     //imageWidget.drawWidget();
+     fileLoaded = true;
+     println("Файл " + selection.getName() + " открыт");
+   }  else  {
+     println("Файл не выбран");
+     fileLoaded = false;  
+   }
+   selecting = false;
 }
 
 void keyPressed()  {
   float step = 10;
   println("keyPressed");
-  if (imageWidget.img != null)  {
+  if (fileLoaded)  {
     if (key == CODED)  {
       switch(keyCode)  {
         case UP:
@@ -96,11 +134,12 @@ void keyPressed()  {
 }
 
 void comThread()  {
-  convertPoints();
+  //convertPoints();
   port = new Serial(this, "COM3", 115200);
   delay(4000);
   
   for(int i = 0; i<points.length; i++){
+    while (stop);
     serialWait();
           
     port.write('m');
@@ -123,7 +162,8 @@ void comThread()  {
     port.write(bytes);
     printBytes();
     println(" ");
-    for(int j = 0; j<points[i].length; j++){    
+    for(int j = 0; j<points[i].length; j++){   
+      while (stop);
       serialWait();
   
       port.write('p');
@@ -151,6 +191,7 @@ void comThread()  {
        println(" ");
     }
   }
+  writing = false;
 }
 
 void printBytes(){
@@ -181,9 +222,10 @@ void serialWait(){
 }
 
 void convertPoints()  {
+  image.scale(imageWidget.w/100, imageWidget.h/100);      //если изначальные размеры виджета 100*100
+  points = image.getPointsInPaths();
   for (RPoint[] path : points) {
-    for (RPoint point : path)  {
-      point.scale(imageWidget.w/100, imageWidget.h/100);      //если изначальные размеры виджета 100*100
+    for (RPoint point : path)  {     
       point.translate(imageWidget.x, imageWidget.y);  
     }
   }
@@ -207,10 +249,11 @@ class Button  {
     this.clr = clr;
   }
   public void bDraw()  {
+    stroke(color(0));
     fill(clr);
     rect(x, y, w, h); 
-    fill(0);
-    text(bText, x + w/2 - 10*bText.length()*10, y + h/2);
+    fill(color(255));
+    text(bText, x + w/2 - bText.length()*2, y + h/2);
   }
   public boolean isPressed()  {
     if (mouseX < (x+w) && mouseX > x && mouseY > y && mouseY < (y+h) && mousePressed)
@@ -230,27 +273,35 @@ class ImageWidget  {
    public ImageWidget()  {};
    public ImageWidget(RShape img)  {
      this.img = img;
+     //h = 100 * img.height / img.width;
+     //w = img.width;
+     //h = img.height;
    }
    public ImageWidget(RShape img, float x, float y)  {
      
    }
    public void drawWidget()  {
-     fill(100);
-     img.transform(x,y+barHeight,w,h+barHeight);
+     img.transform(x,y+barHeight,w,h);
+     img.setFill(color(254));
+     img.setStroke(color(0));
      img.draw();
    }
    public void scale(float scaler)  {
      w = w*scaler;
      h = h*scaler;
-     img.scale(scaler);
+     //img.scale(scaler);
      if (x + w > width)
        x = width - w;
-     if (y + h > height)
-       y = height - h;
-     if (w > width)
+     if (barHeight + y + h > height)
+       y = height - barHeight - h;
+     if (w > width)  {
+       x = 0;
        w = width;
-     if (h > height)
-       h = height;
+     }
+     if (h > height - barHeight)  {
+       y = 0;
+       h = height - barHeight;
+     }
    }
    public void move(float tx, float ty)  {
      x += tx;
@@ -261,8 +312,8 @@ class ImageWidget  {
        x = width - w;
      if (y < 0)
        y = 0;
-     if (y + h > height)
-       y = height - h;
+     if (y + h > height - barHeight)
+       y = (height - barHeight) - h;
      img.translate(x,y);
    }
    RShape img;
