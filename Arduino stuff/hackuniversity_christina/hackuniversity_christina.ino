@@ -26,7 +26,8 @@ class StepperMotor{
   void attach(uint8_t stepP, uint8_t dirP, uint8_t positiveD, long iSteps )// инициализация мотора
     {
     dirPin=dirP;
-    stepPin=stepP; 
+    stepPin=stepP;
+    steps = iSteps; 
     pinMode(stepPin, OUTPUT);
     pinMode(dirPin, OUTPUT); 
     digitalWrite(stepPin, LOW);
@@ -53,7 +54,7 @@ class StepperMotor{
     digitalWrite(dirPin, LOW); 
     else  
     digitalWrite(dirPin, HIGH); 
-    
+ 
     digitalWrite(stepPin, HIGH);
     digitalWrite(stepPin, LOW);
     steps--;
@@ -74,39 +75,81 @@ class StepperMotor{
   };
 
   float stepSize = 0.01; //изменение длины троса за 1 шаг мотора
-  long rR0 = 6600;//длины тросов в мм/10
+  long rR0 = 6600;//длины тросов в мм
   long rL0 = 6600;
   long w   = 10300;//расстояние между моторами 
-  long x0  = 2500;// начальные координаты каретки
-  long y0  = 2500;
-  long x   = x0;   //кооринаты в мм/10 
-  long y   = y0;
   
-  void calcLengthR(long x1, long y1){
-    
+  long x0  =  -(pow(rR0,2)-pow(rL0,2)-pow(w,2))/2/w; //начальные координаты каретки
+  long y0  =  sqrt(pow(rR0,2)-pow(x0,2));
+  
+  long x   =  x0;   //кооринаты в мм/10 
+  long y   =  y0;
+  
+  long calcLengthL(long x1, long y1){
+      return sqrt(pow(x1,2) + pow(y1,2))/10/stepSize;
+    }
+  long calcLengthR(long x1, long y1){
+      return sqrt(pow(w-x1,2) + pow(y1,2))/10/stepSize;
     }
     
-  void calcLengthL(long x1, long y1){
-    
-    }
-      
-  void linearMove (long x1, long y1){
-    
-    }
-
 StepperMotor motorR;
 StepperMotor motorL;
 
+void printCoordinates()
+    {
+    Serial.println(" ");
+    Serial.println("///////////////");
+    Serial.print("x: ");
+    Serial.print(x);
+    Serial.println(" mm");
+    
+    Serial.print("y: ");
+    Serial.print(y);
+    Serial.println(" mm");
+    
+    Serial.print("r length: ");
+    Serial.print(motorR.steps);
+    Serial.println(" steps");
+
+    Serial.print("l length: ");
+    Serial.print(motorL.steps);
+    Serial.println(" steps");
+    
+    
+    Serial.println("///////////////");
+    Serial.println(" ");
+    }
+    
+void linearMove (long x1, long y1){
+  if(x1!=x||y1!=y){
+  float dx = x1-x;
+  float dy = y1-y;
+  float xt = x;
+  float yt = y; 
+  float ex = dx/sqrt(pow(dx,2)+pow(dy,2));
+  float ey = dy/sqrt(pow(dx,2)+pow(dy,2));
+  while(abs(dx)>2||abs(dy)>2){
+  xt+=ex;
+  yt+=ey;
+  dx-=ex;
+  dy-=ey;
+  motorL.goTo(calcLengthL(xt,yt));
+  motorR.goTo(calcLengthR(xt,yt));
+  }
+  x=x1;
+  y=y1;
+  }
+  }
+  
 void setup() {
+  
   Serial.begin(115200); 
-  motorR.attach(STEPL,DIRL,LEFT, 10000);
-  motorL.attach(STEPR,DIRR,RIGHT,10000);
+  motorL.attach(STEPL,DIRL,LEFT,rL0/10/stepSize);
+  motorR.attach(STEPR,DIRR,RIGHT,rR0/10/stepSize);
 }
 
-
-
 void loop() {
-/*
+
   if(analogRead(STICKX)>900)
   motorR.goTo(motorR.steps+10);
   else if(analogRead(STICKX)<200)
@@ -115,7 +158,11 @@ void loop() {
   motorL.goTo(motorL.steps+10);
   else if(analogRead(STICKY)<200)
   motorL.goTo(motorL.steps-10);
-*/
 
-  
+if(Serial.available())
+switch(Serial.read()){
+  case 'g':
+  printCoordinates(); 
+  break;
+  }
 }
