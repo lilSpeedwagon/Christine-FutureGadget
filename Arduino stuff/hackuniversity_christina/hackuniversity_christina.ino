@@ -12,6 +12,8 @@
 
 class StepperMotor{
 
+  public:
+   
   uint8_t stepPin;
   uint8_t dirPin;
   uint8_t positiveDir;
@@ -22,11 +24,13 @@ class StepperMotor{
   long del = 20;
   
   void attach(uint8_t stepP, uint8_t dirP, uint8_t positiveD, long iSteps )// инициализация мотора
-    { 
+    {
+    dirPin=dirP;
+    stepPin=stepP; 
     pinMode(stepPin, OUTPUT);
-    pinMode(stepDir, OUTPUT); 
+    pinMode(dirPin, OUTPUT); 
     digitalWrite(stepPin, LOW);
-    digitalWrite(stepDir, LOW);
+    digitalWrite(dirPin, LOW);
     }
 
   void stepPlus()
@@ -54,7 +58,7 @@ class StepperMotor{
   
   void goTo(long stp)
     {
-      while(micros()-lastStepTime<=del);
+      while(micros()-lastStepTime<=del);     
       while(steps!=stp){
       if(steps<stp)
       stepPlus();
@@ -79,5 +83,15 @@ motorL.attach(STEPR,DIRR,RIGHT,10000);
 }
 
 void loop() {
+  if(analogRead(STICKX)>900)
+  motorR.goTo(motorR.steps+1);
+  else if(analogRead(STICKX)<200)
+  motorR.goTo(motorR.steps-1);
+
+    
+  if(analogRead(STICKY)>900)
+  motorL.goTo(motorL.steps+10);
+  else if(analogRead(STICKY)<200)
+  motorL.goTo(motorL.steps-10);
 
 }
