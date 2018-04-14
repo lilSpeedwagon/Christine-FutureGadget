@@ -2,15 +2,21 @@
 
 #define STICKX A0
 #define STICKY A1
-
+#define BUTTON 7
 #define STEPL A2
 #define DIRL A3
 
 #define STEPR A4
 #define DIRR A5
 
+#define SERVOPIN 2
+
 #define RIGHT 1
 #define LEFT  0 
+
+#define PUT 1
+#define REMOVE 0
+
 
 class StepperMotor{
 
@@ -142,13 +148,42 @@ void linearMove (long x1, long y1){
   y=y1;
   }
   }
+
+Servo stick; 
+char stickState = REMOVE;
+
+void stickMove(char action){
+    if((stickState == REMOVE)&&(action == PUT)){
+        stick.write(100);
+        delay(100);
+        for(unsigned char angle = 100; angle<180; angle++){
+        stick.write(angle);
+        delay(30);
+        }
+    }
+    else if((stickState == PUT)&&(action == REMOVE)){   
+      for(unsigned char angle = 180; angle>90; angle--){
+        stick.write(angle);
+        delay(30);
+      }
+      stick.write(0);
+    }
+    else if(action == PUT)
+        stick.write(180);
+    else if(action == REMOVE)
+        stick.write(0);
+      stickState = action;
+  }
+
+long btnTime = 0; 
   
 void setup() {
-  
-  Serial.begin(115200); 
+  Serial.begin(115200);
+  stick.attach(SERVOPIN); 
   motorL.attach(STEPL,DIRL,LEFT, rL0/10/stepSize);
   motorR.attach(STEPR,DIRR,RIGHT,rR0/10/stepSize);
   pinMode(7, INPUT);
+  digitalWrite(7, HIGH);
   
 }
 
@@ -173,9 +208,12 @@ void loop() {
   }
 
 
-//if(digitalRead(7))
-//motorR.goTo(motorR.steps+3);
+if(!digitalRead(7) && (millis() - btnTime >= 100)){
+stickMove(!stickState);
+btnTime = millis();
+}
 
+Serial.println(digitalRead(7));
 
 if(Serial.available())
 switch(Serial.read()){
