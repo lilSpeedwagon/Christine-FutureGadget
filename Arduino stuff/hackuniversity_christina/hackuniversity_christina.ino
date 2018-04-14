@@ -17,14 +17,36 @@
 #define PUT 1
 #define REMOVE 0
 
+#define HIGHSPEED 2
+#define LOWSPEED 1
+#define PENSPEED 0
+
 long del = 5000;//минимальный период между обращениями к драйверу мотора;
+uint8_t speedState = HIGHSPEED;
 
  void highSpeed(){
-    del = 1000;
-    }
+    del = 500;
+}
     
   void lowSpeed(){
-    del = 7000;
+    switch(speedState){
+    
+    case HIGHSPEED:
+    del = 1000;
+    break;
+    
+    case LOWSPEED:
+    del = 6000;
+    break;
+
+    case PENSPEED:
+    del = 18000;
+    break;
+    }
+  }
+  
+  void setSpeedHigh(){
+    
     }
 
 class StepperMotor{
@@ -97,7 +119,7 @@ class StepperMotor{
   long w   = 10300;//расстояние между моторами 
   
   long offsetX = 2500;//Изначальное смещение каретки
-  long offsetY = 2500;
+  long offsetY = 3000;
   
   long x0  =  -(pow(rR0,2)-pow(rL0,2)-pow(w,2))/2/w; //начальные координаты каретки
   long y0  =  sqrt(pow(rR0,2)-pow(x0,2));
@@ -288,5 +310,18 @@ switch(Serial.read()){
       linearMove(pointXm+offsetX,pointYm+offsetY);  
       break;
     }
+
+    case '0':
+    speedState = PENSPEED;
+    break;
+    
+    case '1':
+    speedState = LOWSPEED;
+    break;
+    
+    case '2':
+    speedState = HIGHSPEED;
+    break;
+    
   }
 }
