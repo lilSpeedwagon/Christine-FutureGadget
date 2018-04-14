@@ -17,6 +17,15 @@
 #define PUT 1
 #define REMOVE 0
 
+long del = 5000;//минимальный период между обращениями к драйверу мотора;
+
+ void highSpeed(){
+    del = 1000;
+    }
+    
+  void lowSpeed(){
+    del = 7000;
+    }
 
 class StepperMotor{
 
@@ -29,7 +38,6 @@ class StepperMotor{
   long steps = 0;
   long lastStepTime = 0;
 
-  long del = 5000;//минимальный период между обращениями к драйверу мотора 
   
   void attach(uint8_t stepP, uint8_t dirP, uint8_t positiveD, long iSteps )// инициализация мотора
     {
@@ -87,6 +95,9 @@ class StepperMotor{
   long rR0 = 6600;//длины тросов в мм
   long rL0 = 6600;
   long w   = 10300;//расстояние между моторами 
+  
+  long offsetX = 2500;//Изначальное смещение каретки
+  long offsetY = 2500;
   
   long x0  =  -(pow(rR0,2)-pow(rL0,2)-pow(w,2))/2/w; //начальные координаты каретки
   long y0  =  sqrt(pow(rR0,2)-pow(x0,2));
@@ -213,14 +224,69 @@ stickMove(!stickState);
 btnTime = millis();
 }
 
-Serial.println(digitalRead(7));
-
 if(Serial.available())
 switch(Serial.read()){
+
+  case 'r':{
+      highSpeed();
+      stickMove(PUT);
+     // X=x0;
+     // Y=y0;
+      linearMove(x0,y0);
+      stickMove(REMOVE);
+      break;
+      }
   
   case 'g':
   printCoordinates(); 
   break;
 
+  case 'm':{
+      highSpeed();
+      long pointXm = 0;
+      long pointYm = 0;
+      for(int8_t i = 3; i>=0; i--){
+        
+      while(!Serial.available());
+        uint8_t bt = Serial.read();
+        if(bt!=32)
+        pointXm+=(long)(bt<<i*8);
+      }
+      for(int8_t i = 3; i>=0; i--){
+      while(!Serial.available());
+        uint8_t bt = Serial.read();
+        if(bt!=32)
+        pointYm+=(long)(bt<<i*8);  
+      }
+      stickMove(PUT);
+      linearMove(pointXm+offsetX,pointYm+offsetY);
+      break; 
+    }
+    
+      case 's':{
+      Serial.print('r');
+      //Serial.flush(); 
+      break;
+      }
+      
+      case 'p':{
+      lowSpeed();
+      long pointXm = 0;
+      long pointYm = 0;
+      
+      for(int8_t i = 3; i>=0; i--){
+      while(!Serial.available());
+        uint8_t bt = Serial.read();  
+        pointXm+=(long)(bt<<i*8);
+        }
+      for(int8_t i = 3; i>=0; i--){
+      while(!Serial.available());
+        uint8_t bt = Serial.read();
+        pointYm+=(long)(bt<<i*8);  
+      }
+      stickMove(REMOVE);
+      linearMove(pointXm+offsetX,pointYm+offsetY);  
+      break;
+    }
   }
 }
