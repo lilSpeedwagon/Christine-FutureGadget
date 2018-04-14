@@ -2,8 +2,10 @@
 
 #define STICKX A0
 #define STICKY A1
+
 #define STEPL A2
 #define DIRL A3
+
 #define STEPR A4
 #define DIRR A5
 
@@ -27,6 +29,7 @@ class StepperMotor{
     {
     dirPin=dirP;
     stepPin=stepP;
+    positiveDir = positiveD;
     steps = iSteps; 
     pinMode(stepPin, OUTPUT);
     pinMode(dirPin, OUTPUT); 
@@ -115,7 +118,6 @@ void printCoordinates()
     Serial.print(motorL.steps);
     Serial.println(" steps");
     
-    
     Serial.println("///////////////");
     Serial.println(" ");
     }
@@ -144,20 +146,36 @@ void linearMove (long x1, long y1){
 void setup() {
   
   Serial.begin(115200); 
-  motorL.attach(STEPL,DIRL,LEFT,rL0/10/stepSize);
+  motorL.attach(STEPL,DIRL,LEFT, rL0/10/stepSize);
   motorR.attach(STEPR,DIRR,RIGHT,rR0/10/stepSize);
+  pinMode(7, INPUT);
+  
 }
 
 void loop() {
 
-  if(analogRead(STICKX)>900)
-  motorR.goTo(motorR.steps+10);
-  else if(analogRead(STICKX)<200)
-  motorR.goTo(motorR.steps-10);
+  while(analogRead(STICKY)>900||analogRead(STICKY)<100||analogRead(STICKX)<100||analogRead(STICKX)>900){   
+  
+  long  X = x; 
+  long  Y = y;
+  
   if(analogRead(STICKY)>900)
-  motorL.goTo(motorL.steps+10);
-  else if(analogRead(STICKY)<200)
-  motorL.goTo(motorL.steps-10);
+  X-=3;
+  else if(analogRead(STICKY)<100)
+  X+=3;
+  
+  if(analogRead(STICKX)<100)
+  Y-=3;
+  else if(analogRead(STICKX)>900)
+  Y+=3;
+
+  linearMove(X,Y);
+  }
+
+
+//if(digitalRead(7))
+//motorR.goTo(motorR.steps+3);
+
 
 if(Serial.available())
 switch(Serial.read()){
