@@ -23,7 +23,7 @@ class StepperMotor{
   long steps = 0;
   long lastStepTime = 0;
 
-  long del = 1000;//минимальный период между обращениями к драйверу мотора 
+  long del = 5000;//минимальный период между обращениями к драйверу мотора 
   
   void attach(uint8_t stepP, uint8_t dirP, uint8_t positiveD, long iSteps )// инициализация мотора
     {
@@ -179,8 +179,10 @@ void loop() {
 
 if(Serial.available())
 switch(Serial.read()){
+  
   case 'g':
   printCoordinates(); 
   break;
+
   }
 }
