@@ -2,3 +2,6 @@ skyrim logo marker x1.3	pen x0.5
 a4 megahackaton logo for a4 x3.8
 lineFlower marker 6
 concentric x1 - 1.5
+logoLabi marker x10
+putin x8
+krut x2
