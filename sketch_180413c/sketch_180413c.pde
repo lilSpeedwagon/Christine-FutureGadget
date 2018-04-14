@@ -12,32 +12,45 @@ boolean fileLoaded;
 boolean selecting;
 boolean writing;
 boolean stop;
+boolean portOpened;
 
 PFont primalFont;
 color bgColor;
-float barHeight; 
+int barHeight; 
+float scaleK;
+float scaleStep;
 
 Button loadFileButton;
-Button writeButton;
-Button stopButton;
+Button scalePButton;
+Button scaleMButton;
+Button fastSpeedButton;
+Button slowSpeedButton;
+Button penSpeedButton;
 
 
 void setup()  {
   println("Инициализация...");
-  size(500, 600);
-  primalFont = createFont("Segoe UI",16,true);
   barHeight = 60;
+  size(800, 560);
+  primalFont = createFont("Segoe UI",16,true);
   bgColor = 255;
   stroke(0);
   background(255);
   textFont(primalFont,12);
   loadFileButton = new Button(10, 10, 100, 40, "file select");
-  writeButton = new Button(120, 10, 100, 40, "write data");
-  stopButton = new Button(230, 10, 100, 40, "pause");
+  scalePButton = new Button(120, 10, 50, 40, "+");
+  scaleMButton = new Button(180, 10, 50, 40, "-");
+  slowSpeedButton = new Button(240, 10, 50, 40, "slow");
+  fastSpeedButton = new Button(300, 10, 50, 40, "fast");
+  penSpeedButton = new Button(360, 10, 50, 40, "pen");
+  imageWidget = new ImageWidget();
   fileLoaded = false;
   selecting = false;
   writing = false;
   stop = false;
+  portOpened = false;
+  scaleK = 1;
+  scaleStep = 0.1;
   
   RG.init(this);
   RG.ignoreStyles(ignoringStyles);
@@ -54,31 +67,19 @@ void clc()  {
 void draw()  {
   clc();
   loadFileButton.bDraw();
-  writeButton.bDraw();
-  stopButton.bDraw();
+  scalePButton.bDraw();
+  scaleMButton.bDraw();
+  slowSpeedButton.bDraw();
+  fastSpeedButton.bDraw();
+  penSpeedButton.bDraw();
+  fill(0);
+  text("scale " + scaleK, 720, 30);
   
   if (imageWidget != null && fileLoaded)
     imageWidget.drawWidget();
   fill(0);
   line(0,barHeight,width,barHeight);
   fill(255);
-  if (loadFileButton.isPressed() && !selecting)  {
-    selecting = true;
-    mousePressed = false;
-    selectInput("select svg file", "openFile");
-  }
-  if (writeButton.isPressed() && fileLoaded && !writing)  {
-    writing = true;
-    println("Начинаем запись в порт...");
-    thread("comThread");
-  }
-  if (stopButton.isPressed() && writing)  {
-    if (stop)  {
-      println("продолжаем...");  
-    }  else  {
-      println("приостановка записи");
-    }
-  }
 }
 
 void openFile(File selection)  {
@@ -87,9 +88,15 @@ void openFile(File selection)  {
      println("Открытие файла " + selection.getName());
      image = null;
      image = RG.loadShape(selection.getAbsolutePath());
+     image.scale(scaleK); //3-4 для листа A4    6-7 для доски
      points = image.getPointsInPaths();
-     imageWidget = new ImageWidget(image);
-     //imageWidget.drawWidget();
+     paint();
+     imageWidget.img = image;
+     
+     
+     imageWidget.drawWidget();
+     
+     
      fileLoaded = true;
      println("Файл " + selection.getName() + " открыт");
    }  else  {
@@ -97,6 +104,39 @@ void openFile(File selection)  {
      fileLoaded = false;  
    }
    selecting = false;
+}
+
+void mousePressed()  {
+  if (scalePButton.isPressed())  {
+    scaleK += scaleStep;
+    imageWidget.w = imageWidget.w*scaleStep;
+    imageWidget.h *= scaleStep;
+  }
+  
+  if (scaleMButton.isPressed() && scaleK > scaleStep)  {
+    scaleK -= scaleStep;  
+    imageWidget.w /= scaleStep;
+    imageWidget.h /= scaleStep;
+  }
+  
+  if (loadFileButton.isPressed() && !selecting)  {
+    selecting = true;
+    //mousePressed = false;
+    selectInput("select svg file", "openFile");
+  }
+  
+  if (slowSpeedButton.isPressed())  {
+    println("низкая скорость");
+    setSpeed('1');
+  }
+  if (fastSpeedButton.isPressed())  {
+    println("высокая скорость");
+    setSpeed('2');
+  }
+  if (penSpeedButton.isPressed())  {
+    println("ооооооч медленная скорость");
+    setSpeed('0');
+  }
 }
 
 void keyPressed()  {
@@ -133,10 +173,20 @@ void keyPressed()  {
   }
 }
 
-void comThread()  {
+void setSpeed(char c)  {
+  if (!portOpened)  {
+    port = new Serial(this, "COM3", 115200);
+    delay(2000);
+  }
+  port.write(c);
+  portOpened = true;
+}
+
+void paint()  {
   //convertPoints();
-  port = new Serial(this, "COM3", 115200);
-  delay(4000);
+  if (!portOpened)
+    port = new Serial(this, "COM3", 115200);
+  delay(2000);
   
   for(int i = 0; i<points.length; i++){
     while (stop);
@@ -191,7 +241,10 @@ void comThread()  {
        println(" ");
     }
   }
+  port.write('r');
+  
   writing = false;
+  println("Запись в порт завершена");
 }
 
 void printBytes(){
@@ -274,11 +327,14 @@ class ImageWidget  {
    public ImageWidget(RShape img)  {
      this.img = img;
      //h = 100 * img.height / img.width;
-     //w = img.width;
-     //h = img.height;
+     w = img.width;
+     h = img.height;
    }
    public ImageWidget(RShape img, float x, float y)  {
      
+   }
+   public void isPressed()  {
+       
    }
    public void drawWidget()  {
      img.transform(x,y+barHeight,w,h);
