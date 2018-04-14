@@ -2,13 +2,52 @@
 
 #define STICKX A0
 #define STICKY A1
+#define BUTTON 7
 #define STEPL A2
 #define DIRL A3
+
 #define STEPR A4
 #define DIRR A5
 
+#define SERVOPIN 2
+
 #define RIGHT 1
 #define LEFT  0 
+
+#define PUT 1
+#define REMOVE 0
+
+#define HIGHSPEED 2
+#define LOWSPEED 1
+#define PENSPEED 0
+
+long del = 5000;//минимальный период между обращениями к драйверу мотора;
+uint8_t speedState = HIGHSPEED;
+
+ void highSpeed(){
+    del = 500;
+}
+    
+  void lowSpeed(){
+    switch(speedState){
+    
+    case HIGHSPEED:
+    del = 1000;
+    break;
+    
+    case LOWSPEED:
+    del = 6000;
+    break;
+
+    case PENSPEED:
+    del = 18000;
+    break;
+    }
+  }
+  
+  void setSpeedHigh(){
+    
+    }
 
 class StepperMotor{
 
@@ -21,12 +60,12 @@ class StepperMotor{
   long steps = 0;
   long lastStepTime = 0;
 
-  long del = 1000;//минимальный период между обращениями к драйверу мотора 
   
   void attach(uint8_t stepP, uint8_t dirP, uint8_t positiveD, long iSteps )// инициализация мотора
     {
     dirPin=dirP;
     stepPin=stepP;
+    positiveDir = positiveD;
     steps = iSteps; 
     pinMode(stepPin, OUTPUT);
     pinMode(dirPin, OUTPUT); 
@@ -79,6 +118,9 @@ class StepperMotor{
   long rL0 = 6600;
   long w   = 10300;//расстояние между моторами 
   
+  long offsetX = 2500;//Изначальное смещение каретки
+  long offsetY = 3000;
+  
   long x0  =  -(pow(rR0,2)-pow(rL0,2)-pow(w,2))/2/w; //начальные координаты каретки
   long y0  =  sqrt(pow(rR0,2)-pow(x0,2));
   
@@ -115,7 +157,6 @@ void printCoordinates()
     Serial.print(motorL.steps);
     Serial.println(" steps");
     
-    
     Serial.println("///////////////");
     Serial.println(" ");
     }
@@ -140,29 +181,147 @@ void linearMove (long x1, long y1){
   y=y1;
   }
   }
+
+Servo stick; 
+char stickState = REMOVE;
+
+void stickMove(char action){
+    if((stickState == REMOVE)&&(action == PUT)){
+        stick.write(100);
+        delay(100);
+        for(unsigned char angle = 100; angle<180; angle++){
+        stick.write(angle);
+        delay(30);
+        }
+    }
+    else if((stickState == PUT)&&(action == REMOVE)){   
+      for(unsigned char angle = 180; angle>90; angle--){
+        stick.write(angle);
+        delay(30);
+      }
+      stick.write(0);
+    }
+    else if(action == PUT)
+        stick.write(180);
+    else if(action == REMOVE)
+        stick.write(0);
+      stickState = action;
+  }
+
+long btnTime = 0; 
   
 void setup() {
-  
-  Serial.begin(115200); 
-  motorL.attach(STEPL,DIRL,LEFT,rL0/10/stepSize);
+  Serial.begin(115200);
+  stick.attach(SERVOPIN); 
+  motorL.attach(STEPL,DIRL,LEFT, rL0/10/stepSize);
   motorR.attach(STEPR,DIRR,RIGHT,rR0/10/stepSize);
+  pinMode(7, INPUT);
+  digitalWrite(7, HIGH);
+  
 }
 
 void loop() {
 
-  if(analogRead(STICKX)>900)
-  motorR.goTo(motorR.steps+10);
-  else if(analogRead(STICKX)<200)
-  motorR.goTo(motorR.steps-10);
+  while(analogRead(STICKY)>900||analogRead(STICKY)<100||analogRead(STICKX)<100||analogRead(STICKX)>900){   
+  
+  long  X = x; 
+  long  Y = y;
+  
   if(analogRead(STICKY)>900)
-  motorL.goTo(motorL.steps+10);
-  else if(analogRead(STICKY)<200)
-  motorL.goTo(motorL.steps-10);
+  X-=3;
+  else if(analogRead(STICKY)<100)
+  X+=3;
+  
+  if(analogRead(STICKX)<100)
+  Y-=3;
+  else if(analogRead(STICKX)>900)
+  Y+=3;
+
+  linearMove(X,Y);
+  }
+
+
+if(!digitalRead(7) && (millis() - btnTime >= 100)){
+stickMove(!stickState);
+btnTime = millis();
+}
 
 if(Serial.available())
 switch(Serial.read()){
+
+  case 'r':{
+      highSpeed();
+      stickMove(PUT);
+     // X=x0;
+     // Y=y0;
+      linearMove(x0,y0);
+      stickMove(REMOVE);
+      break;
+      }
+  
   case 'g':
   printCoordinates(); 
   break;
+
+  case 'm':{
+      highSpeed();
+      long pointXm = 0;
+      long pointYm = 0;
+      for(int8_t i = 3; i>=0; i--){
+        
+      while(!Serial.available());
+        uint8_t bt = Serial.read();
+        if(bt!=32)
+        pointXm+=(long)(bt<<i*8);
+      }
+      for(int8_t i = 3; i>=0; i--){
+      while(!Serial.available());
+        uint8_t bt = Serial.read();
+        if(bt!=32)
+        pointYm+=(long)(bt<<i*8);  
+      }
+      stickMove(PUT);
+      linearMove(pointXm+offsetX,pointYm+offsetY);
+      break; 
+    }
+    
+      case 's':{
+      Serial.print('r');
+      //Serial.flush(); 
+      break;
+      }
+      
+      case 'p':{
+      lowSpeed();
+      long pointXm = 0;
+      long pointYm = 0;
+      
+      for(int8_t i = 3; i>=0; i--){
+      while(!Serial.available());
+        uint8_t bt = Serial.read();  
+        pointXm+=(long)(bt<<i*8);
+        }
+      for(int8_t i = 3; i>=0; i--){
+      while(!Serial.available());
+        uint8_t bt = Serial.read();
+        pointYm+=(long)(bt<<i*8);  
+      }
+      stickMove(REMOVE);
+      linearMove(pointXm+offsetX,pointYm+offsetY);  
+      break;
+    }
+
+    case '0':
+    speedState = PENSPEED;
+    break;
+    
+    case '1':
+    speedState = LOWSPEED;
+    break;
+    
+    case '2':
+    speedState = HIGHSPEED;
+    break;
+    
   }
 }
