@@ -26,12 +26,13 @@ Button scaleMButton;
 Button fastSpeedButton;
 Button slowSpeedButton;
 Button penSpeedButton;
+Button drawButton;
 
 
 void setup()  {
   println("Инициализация...");
   barHeight = 60;
-  size(800, 560);
+  size(1000, 760);
   primalFont = createFont("Segoe UI",16,true);
   bgColor = 255;
   stroke(0);
@@ -43,6 +44,7 @@ void setup()  {
   slowSpeedButton = new Button(240, 10, 50, 40, "slow");
   fastSpeedButton = new Button(300, 10, 50, 40, "fast");
   penSpeedButton = new Button(360, 10, 50, 40, "pen");
+  drawButton = new Button(420, 10, 100, 40, "draw");
   imageWidget = new ImageWidget();
   fileLoaded = false;
   selecting = false;
@@ -72,6 +74,7 @@ void draw()  {
   slowSpeedButton.bDraw();
   fastSpeedButton.bDraw();
   penSpeedButton.bDraw();
+  drawButton.bDraw();
   fill(0);
   text("scale " + scaleK, 720, 30);
   
@@ -88,14 +91,11 @@ void openFile(File selection)  {
      println("Открытие файла " + selection.getName());
      image = null;
      image = RG.loadShape(selection.getAbsolutePath());
-     image.scale(scaleK); //3-4 для листа A4    6-7 для доски
-     points = image.getPointsInPaths();
-     paint();
+     //image.scale(scaleK); //3-4 для листа A4    6-7 для доски
+     //points = image.getPointsInPaths();
      imageWidget.img = image;
-     
-     
      imageWidget.drawWidget();
-     
+     //paint();
      
      fileLoaded = true;
      println("Файл " + selection.getName() + " открыт");
@@ -107,16 +107,14 @@ void openFile(File selection)  {
 }
 
 void mousePressed()  {
-  if (scalePButton.isPressed())  {
+  if (scalePButton.isPressed() && fileLoaded)  {
+    imageWidget.img.scale(1 + scaleStep);
     scaleK += scaleStep;
-    imageWidget.w = imageWidget.w*scaleStep;
-    imageWidget.h *= scaleStep;
   }
   
-  if (scaleMButton.isPressed() && scaleK > scaleStep)  {
-    scaleK -= scaleStep;  
-    imageWidget.w /= scaleStep;
-    imageWidget.h /= scaleStep;
+  if (scaleMButton.isPressed() && scaleK > scaleStep && fileLoaded)  {
+    imageWidget.img.scale(1 - scaleStep);
+    scaleK -= scaleStep;
   }
   
   if (loadFileButton.isPressed() && !selecting)  {
@@ -136,6 +134,9 @@ void mousePressed()  {
   if (penSpeedButton.isPressed())  {
     println("ооооооч медленная скорость");
     setSpeed('0');
+  }
+  if (drawButton.isPressed() && fileLoaded)  {
+    paint();  
   }
 }
 
@@ -159,16 +160,6 @@ void keyPressed()  {
           break;
       }
     }
-    else  {
-      switch(key)  {
-        case '+':
-          imageWidget.scale(1.1);
-          break;
-        case '-':
-          imageWidget.scale(0.9);
-          break;
-      }
-    }
     imageWidget.drawWidget();
   }
 }
@@ -183,7 +174,10 @@ void setSpeed(char c)  {
 }
 
 void paint()  {
-  //convertPoints();
+  convertPoints();
+  //image.scale(scaleK);
+  //points = image.getPointsInPaths();
+  
   if (!portOpened)
     port = new Serial(this, "COM3", 115200);
   delay(2000);
@@ -275,7 +269,8 @@ void serialWait(){
 }
 
 void convertPoints()  {
-  image.scale(imageWidget.w/100, imageWidget.h/100);      //если изначальные размеры виджета 100*100
+  //image.scale(imageWidget.w/100, imageWidget.h/100);      //если изначальные размеры виджета 100*100
+  image.scale(scaleK);
   points = image.getPointsInPaths();
   for (RPoint[] path : points) {
     for (RPoint point : path)  {     
@@ -326,9 +321,9 @@ class ImageWidget  {
    public ImageWidget()  {};
    public ImageWidget(RShape img)  {
      this.img = img;
+     img.scale(0.001);
+     //img.scale(scaleK);
      //h = 100 * img.height / img.width;
-     w = img.width;
-     h = img.height;
    }
    public ImageWidget(RShape img, float x, float y)  {
      
@@ -337,44 +332,27 @@ class ImageWidget  {
        
    }
    public void drawWidget()  {
-     img.transform(x,y+barHeight,w,h);
+     
+     img.transform(x,y + barHeight,100*scaleK, 100*scaleK);
      img.setFill(color(254));
      img.setStroke(color(0));
      img.draw();
    }
-   public void scale(float scaler)  {
-     w = w*scaler;
-     h = h*scaler;
-     //img.scale(scaler);
-     if (x + w > width)
-       x = width - w;
-     if (barHeight + y + h > height)
-       y = height - barHeight - h;
-     if (w > width)  {
-       x = 0;
-       w = width;
-     }
-     if (h > height - barHeight)  {
-       y = 0;
-       h = height - barHeight;
-     }
-   }
+
    public void move(float tx, float ty)  {
      x += tx;
      y += ty;
      if (x < 0)
        x = 0;
-     if (x + w > width)
-       x = width - w;
+     if (x + 100*scaleK > width)
+       x = width - 100*scaleK;
      if (y < 0)
        y = 0;
-     if (y + h > height - barHeight)
-       y = (height - barHeight) - h;
+     if (y + 100*scaleK > height - barHeight)
+       y = (height - barHeight) - 100*scaleK;
      img.translate(x,y);
    }
    RShape img;
    float x = 0;
    float y = 0;
-   float w = 100;
-   float h = 100;
 }
